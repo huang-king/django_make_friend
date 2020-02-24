@@ -4,6 +4,8 @@ import requests
 from swiper_django import other_config
 from django.core.cache import cache
 from common import keys
+from worker import celery_app
+
 
 def get_vcode(size=4):
     """1000-9999"""
@@ -12,6 +14,8 @@ def get_vcode(size=4):
     vcode = random.randint(start, end)
     return vcode
 
+
+@celery_app.task
 def send_vcode(phone):
     url = other_config.YZX_URL
     params = other_config.YZX_PARAMS.copy()

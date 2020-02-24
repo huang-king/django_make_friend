@@ -1,13 +1,15 @@
 import os
+from urllib.parse import urljoin
 
 from django.core.cache import cache
-from swiper_django import settings
+from swiper_django import settings, other_config
 
 from lib.sms import send_vcode
 from common import errors
 from lib.http import render_json
 from common import keys
 from user.forms import ProfileForm
+from user.logic import handle_uploaded_file
 from user.models import User
 # Create your views here.
 
@@ -24,10 +26,8 @@ def submit_phone(request):
     """提交手机号码"""
     phone = request.POST.get('phone')
     """发送验证码"""
-    msg = send_vcode(phone)
-    if msg == 'OK':
-        return render_json()
-    return render_json(code=errors.SMS_ERROR, data=msg)
+    msg = send_vcode.delay(phone)
+    return render_json()
 
 
 def submit_vcode(request):
@@ -35,7 +35,7 @@ def submit_vcode(request):
     phone = request.POST.get('phone')
     vcode = request.POST.get('vocde')
 
-    cache_vcode = cache.get(keys.VCODE_KEY % phone)
+    cache_vcode = cache.get(keys.CACHE_VCODE % phone)
     if vcode == str(cache_vcode):
         # 判断登录或者注册
         user, _ = User.objects.get_or_create(phonenum=phone, defaults={'nickname': phone})
@@ -64,9 +64,15 @@ def up_profile(request):
 def upload_avatar(request):
     """头像上传"""
     user = request.user
-
     avatar = request.FILES.get('avatar')
-    filepath = os.path.join(settings.BASE_DIR, settings.MEDIA_ROOT)
+    handle_uploaded_file.delay(user.uid, avatar)
+    avatar_url = urljoin(other_config.QINIU_URL, keys.AVATAR_NAME % user.uid)
+    user.avatar = avatar_url
+    user.save()
+    return render_json()
+
+
+
 
 
 
